@@ -1,59 +1,37 @@
 <?php
-    require_once('functions.php');
+class Login {
+    private $supabaseUrl = 'https://mepgnqdwrlbqfowwuvol.supabase.co';
+    private $supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lcGducWR3cmxicWZvd3d1dm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjUxMjA2MDMsImV4cCI6MjA0MDY5NjYwM30.vefLAf2tXKLHFndIK4g8bZvuvkrinAFwpK1INGxacx8';
 
-    class Login{
-        private $email;
-        private $password;
-        private $connectionDB;
+    public function loginUser($email, $password) {
+        $data = [
+            'email' => $email,
+            'password' => $password,
+        ];
 
-        public function __construct($email, $password)
-        {
-            $this->email = secure_data($email);
-            $this->password = secure_data($password);
-            $this->connectionDB = connectionDB();
+        $response = $this->makeRequest('/auth/v1/token?grant_type=password', $data);
 
-            if($this->check_email_exists()){
-                 $passInDB = $this->get_pass_in_db();
-                 $auth = password_verify($this->password,$passInDB);
-                 if($auth){
-                    ob_start();
-                    session_start();
-                    $_SESSION['email'] = $this->email;
-                    $_SESSION['valid'] = true;
-                    header('Location: home.php');
-                 } else {
-                    header('Location: index.php');
-                 }
-            } else {
-                header('Location: index.php');
-            }
-
-
-        }
-
-        private function check_email_exists(){
-			$stmt = $this->connectionDB->prepare('SELECT * FROM listado_usuarios WHERE email=:email');
-			$stmt->bindParam(':email',$this->email);
-			$stmt->execute();
-			
-			$result = $stmt->fetch();
-	
-			if(isset($result['email'])){
-	            return true;
-	        } else {
-	            return false;
-	        }
-		}
-
-        private function get_pass_in_db(){
-            $stmt = $this->connectionDB->prepare('SELECT * FROM listado_usuarios WHERE email=:email');
-            $stmt->bindParam(':email',$this->email);
-            $stmt->execute();
-
-            $result = $stmt->fetch();
-
-            return $result['password'];
+        if (isset($response['error'])) {
+            return $response['error']['message'];
+        } else {
+            $_SESSION['user'] = $response;
+            return "Login successful!";
         }
     }
 
+    private function makeRequest($endpoint, $data) {
+        $url = $this->supbaseUrl . $endpoint;
+        $options = [
+            'http' => [
+                'header'  => "Content-type: application/json\r\nAuthorization: Bearer " . $this->supabaseKey,
+                'method'  => 'POST',
+                'content' => json_encode($data),
+            ],
+        ];
+        $context  = stream_context_create($options);
+        $result = file_get_contents($url, false, $context);
+
+        return json_decode($result, true);
+    }
+}
 ?>
